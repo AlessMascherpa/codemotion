@@ -1,0 +1,4 @@
+name = Codemotion example module
+description = Module for teaching & demo pourposes
+package = Codemotion
+core = 7.x

@@ -1,0 +1,149 @@
+<?php
+/**
+ * @file
+ * Codemotion demo module based on examples module.
+ */
+
+/**
+ * Implements hook_permission().
+ */
+function codemotion_permission() {
+  return array(
+    'access codemotion table' => array(
+      'title' => t('Access codemotion table'),
+      'description' => t('May view the table with de results of codemotion_example table.'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function codemotion_menu() {
+  $items['codemotion'] = array(
+    'title' => 'TableSort example',
+    'description' => 'Show a page with a sortable table',
+    'page callback' => 'codemotion_tablesort_example_page',
+    'access callback' => TRUE,
+  );
+  $items['codemotion/table'] = array(
+    'title' => 'TableSort example',
+    'description' => 'Page with a sortable table',
+    'page callback' => 'codemotion_tablesort_example_page',
+    'access arguments' => array('access codemotion table'),
+    'type' => MENU_NORMAL_ITEM,
+    'menu_name' => 'main-menu',
+  );
+  $items['codemotion/form'] = array(
+    'title' => 'FormAPI example',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('form_codemotion_form'),
+    'access callback' => TRUE,
+    'description' => 'How to use FAPI',
+    'file' => 'form_codemotion.inc',
+    'type' => MENU_NORMAL_ITEM,
+    'menu_name' => 'user-menu',
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function codemotion_block_info() {
+  $blocks['codemotion'] = array(
+    'info' => t('Codemotion Data'),
+    'status' => TRUE,
+    'region' => 'sidebar_first',
+    'visibility' => BLOCK_VISIBILITY_LISTED,
+    'pages' => 'node/*',
+  );
+  $blocks['codemotiontext'] = array(
+    'info' => t('Codemotion Text'),
+  );
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function codemotion_block_view($delta = '') {
+  switch ($delta) {
+    case 'codemotion':
+      $block['subject'] = t('Codemotion Data Block');
+      $block['content'] = codemotion_tablesort_example_page();
+      break;
+    case 'codemotiontext':
+      $block['codemotiontext'] = 'codemotiontext';
+      break;
+  }
+  return $block;
+}
+
+/**
+ * Build the table render array.
+ *
+ * @return
+ *   A render array set for theming by theme_table().
+ */
+function codemotion_tablesort_example_page() {
+  $header = array(
+    array('data' => t('Numbers'), 'field' => 't.numbers'),
+    array('data' => t('Letters'), 'field' => 't.alpha'),
+    array('data' => t('Mixture'), 'field' => 't.random'),
+  );
+  $query = db_select('codemotion_example', 't')
+    ->extend('TableSort');
+  $query->fields('t');
+  $result = $query
+    ->orderByHeader($header)
+    ->execute();
+  $rows = array();
+  foreach ($result as $row) {
+    $rows[] = array('data' => (array) $row);
+  }
+  $build['tablesort_table'] = array(
+    '#theme' => 'table',
+    '#header' => $header,
+    '#rows' => $rows,
+  );
+  return $build;
+}
+
+/**
+ * Sends an e-mail.
+ */
+function codemotion_mail_send($form_values) {
+  $module = 'codemotion';
+  $key = 'contact_message';
+  $to = $form_values['email'];
+  $from = variable_get('site_mail', 'admin@example.com');
+  $params = $form_values;
+  $language = language_default();
+  $send = TRUE;
+  $result = drupal_mail($module, $key, $to, $language, $params, $from, $send);
+  if ($result['result'] == TRUE) {
+    drupal_set_message(t('Your message has been sent.'));
+  }
+  else {
+    drupal_set_message(t('There was a problem sending your message and it was not sent.'), 'error');
+  }
+}
+
+/**
+ * Implement hook_mail().
+ */
+function codemotion_mail($key, &$message, $params) {
+  global $user;
+  $options = array(
+    'langcode' => $message['language']->language,
+  );
+
+  switch ($key) {
+    case 'contact_message':
+      $message['subject'] = t('E-mail sent from @site-name', array('@site-name' => variable_get('site_name', 'Drupal')), $options);
+      $message['body'][] = t('@name sent you the following message:', array('@name' => $user->name), $options);
+      $message['body'][] = check_plain($params['random']);
+      break;
+  }
+}
